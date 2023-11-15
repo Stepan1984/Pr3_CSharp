@@ -18,108 +18,96 @@ namespace Pr2
         [DllImport("file64.dll")]
         public static extern int fileLength(IntPtr file);
 
-        static List<string> allMonths = new List<string> { "январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь" };
-        const double EPS = 1e-6;
-        public struct Plant
-        {
-            string name;
-            int month;
-            int seedsAmount;
-            double price;
-            public Plant(string n, int m, int s, double p)
-            {
-                name = n;
-                month = m;
-                seedsAmount = s;
-                price = p;
-            }
-            public override string ToString()
-            {
-                return string.Format("{0,8}|{1,9}|{2,12:d}|{3,6:F} ", name, allMonths[month], seedsAmount, price); // 8|9|12|6
-            }
-
-            public string GetName() { return name; }
-            public int GetMonth() { return month; }
-            public int GetSeedsAmount() { return seedsAmount; }
-            public double GetPrice() { return price; }
-
-            public void SetName(string newName) { if (newName != null) name = newName; }
-            public void SetMonth(int newMonth) { if (newMonth > 0 && newMonth < 13) month = newMonth; }
-            public void SetSeedsAmount(int newAmount) { if (newAmount > 0) seedsAmount = newAmount; }
-            public void SetPrice(double newPrice) { if (newPrice > 0) price = newPrice; }
-
-        }
-
         public class File : IDisposable
         {
-            IntPtr path;
-            File(string newPath, bool openType) 
+            readonly IntPtr path;
+            private StringBuilder word;
+            int length;
+            public int Length { get { return length; } }
+            public string Word{ get { return word.ToString(); } }
+            public File(string newPath, bool openType) // конструктор
             {
                 try 
                 {
-                    open(newPath, openType);
+                    path = open(newPath, openType);
+                    word = new StringBuilder(255);
                 }
                 catch (Exception ex) 
                 {
-                    throw new Exception("370 01111824");
+                    throw ex;
                     //видимо удалить объект
                 }
-                
+                length = fileLength(path);
+
             }
-            ~File() 
+            ~File() // деструктор
             {
                 
-                try { close(iPath); } 
+                try { close(path); } 
                 catch (Exception ex) {}
                 
             }
 
-            public unsafe void Dispose() 
+            public unsafe void Dispose() // dispose
             {
-                try { close(&iPath); }
-                catch (Exception ex) { }
+                try { close(path); }
+                catch (Exception ex) {}
             }
 
-            public bool Read() { }
+            public bool Read(int num) //чтение слова из файла
+            {
+                try
+                {
+                    return read(path, num, word);
+                }catch (Exception ex) 
+                {
+                    throw ex;
+                }
+            }
+
+            public void Write(string text) // запись строки в файл
+            {
+                try
+                {
+                    write(path, text);
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+            }
             
         }
         static void Main(string[] args)
         {
-
-            
-            
-            
-
-            string filename;
-            Stack<Plant> stack = new Stack<Plant>(); // создаём стэк
-            do
-            {
-                filename = GetFilename();
-            } while (ReadFile(filename, ref stack) < 0); // читаем данные из файла
+            List<File> files = new List<File>();
             int menu;
-            int length;
             do
             {
                 Console.Clear();
-                Console.WriteLine("1.Отобразить содержимое стека");
-                Console.WriteLine("2.Записать данные в обратном порядке");
-                Console.WriteLine("3.Добавить новый элемент");
-                Console.WriteLine("4.Удалить элемент по индексу");
-                Console.WriteLine("5.Удалить первый элемент (из вершины стека)");
-                Console.WriteLine("6.Корректировать элемент");
-                Console.WriteLine("7.Что высаживать весной");
-                Console.WriteLine("8.Корректировать цену");
-                Console.WriteLine("9.Выход");
+                Console.WriteLine("1.Открыть файл");//
+                Console.WriteLine("2.Оставить в файле 10 самых частых слов");
+                Console.WriteLine("3.Получить количество слов в файле");//
+                Console.WriteLine("4.Заменить каждое четное слово файла на соответствующее из второго файла,\n   заменить каждое нечётное слово из второго файла на соответствующее из первого");
+                Console.WriteLine("5.Выход");
                 Int32.TryParse(Console.ReadLine(), out menu);
                 Console.Clear();
                 switch (menu)
                 {
                     case 1:
-                        //Console.WriteLine("Содержимое стека:");
-                        Show(ref stack);
+                        try
+                        {
+                            files.Push(new File(GetFilename()));
+                        }
+                        catch (Exception ex) 
+                        {
+                            Console.WriteLine("Ошибка открытия файлов");
+                            fileList.ForEach(file => file.Dispose());
+                            break;
+                        }
+
                         break;
                     case 2:
-                        //Console.WriteLine("Записали в обратном порядке");
                         length = stack.Count;
                         if (length > 0)
                         {
@@ -134,8 +122,7 @@ namespace Pr2
                         Exit();
                         break;
                     case 3:
-                        //Console.WriteLine("Добавляем элемент в начало (в вершину стека)");
-                        stack.Push(CreateNewPlant());
+                        fileList.ForEach(file => Console.WriteLine(file.GetLength()));
                         Exit();
                         break;
                     case 4: // удалить элемент по индексу
@@ -147,7 +134,7 @@ namespace Pr2
                                 stack.Pop();
                             else
                             {
-                                Stack<Plant> tmpStack = new Stack<Plant>();
+                                
                                 int j = 0;
                                 while (j++ != index)
                                     tmpStack.Push(stack.Pop());
@@ -163,67 +150,9 @@ namespace Pr2
                         }
                         Exit();
                         break;
-                    case 5://удалить первый элемент
-                        Console.WriteLine(stack.Pop());
-                        Console.WriteLine("Элемент успешно удалён");
-                        Exit();
-                        break;
-                    case 6: // корректировка эелмента
-                        length = stack.Count;
-                        if (length > 0)
-                        {
-                            int index = GetIndex(length);
-                            Stack<Plant> tmpStack = new Stack<Plant>();
-                            int j = 0;
-                            while (j++ != index)
-                                tmpStack.Push(stack.Pop());
-                            stack.Push(ChangeElement(stack.Pop()));
-                            while (tmpStack.Count > 0)
-                                stack.Push(tmpStack.Pop());
-
-                            Console.WriteLine("Элемент успешно изменён");
-                        }
-                        else
-                        {
-                            Console.WriteLine("Стек пустой");
-                        }
-                        Exit();
-                        break;
-                    case 7: // с марта по май
-                        Console.WriteLine("Высаживаем весной");
-                        Console.WriteLine("{0,3}|{1,-12}", "№", "название");
-                        int i = 0;
-                        foreach (Plant item in stack)
-                        {
-                            if (item.GetMonth() > 1 && item.GetMonth() < 5)
-                                Console.WriteLine("{0,3}|{1,-12}", ++i, item.GetName());
-                        }
-                        Exit();
-                        break;
-                    case 8:// корректировка цены
-                        length = stack.Count;
-                        if (length > 0)
-                        {
-                            int index = GetIndex(length);
-                            Stack<Plant> tmpStack = new Stack<Plant>();
-                            int j = 0;
-                            while (j++ != index)
-                                tmpStack.Push(stack.Pop());
-                            stack.Push(ChangePrice(stack.Pop()));
-                            while (tmpStack.Count > 0)
-                                stack.Push(tmpStack.Pop());
-                        }
-                        else
-                        {
-                            Console.WriteLine("Стек пустой");
-                        }
-                        Exit();
-                        break;
                 }
             }
-            while (menu != 9);
-
-            WriteFile(filename, ref stack);
+            while (menu != 5);
 
         }
 
