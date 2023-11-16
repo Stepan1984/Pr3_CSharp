@@ -1,5 +1,6 @@
 ﻿
 
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -20,24 +21,25 @@ namespace Pr2
 
         public class File : IDisposable
         {
-            readonly IntPtr path;
+            public readonly IntPtr path;
+            public readonly string sPath;
             private StringBuilder word;
             int length;
-            public int Length { get { return length; } }
+            public int Length { get { return length = fileLength(path); } }
             public string Word{ get { return word.ToString(); } }
             public File(string newPath, bool openType) // конструктор
             {
                 try 
                 {
+                    sPath = newPath;
                     path = open(newPath, openType);
                     word = new StringBuilder(255);
                 }
                 catch (Exception ex) 
                 {
-                    throw ex;
+                    throw new Exception("Всё плохо, вырубай");
                     //видимо удалить объект
                 }
-                length = fileLength(path);
 
             }
             ~File() // деструктор
@@ -61,7 +63,7 @@ namespace Pr2
                     return read(path, num, word);
                 }catch (Exception ex) 
                 {
-                    throw ex;
+                    throw new Exception("Читать - никак");
                 }
             }
 
@@ -73,15 +75,24 @@ namespace Pr2
                 }
                 catch (Exception ex)
                 {
-                    throw ex;
+                    throw new Exception("Писать - никак");
                 }
             }
             
         }
+
         static void Main(string[] args)
         {
-            List<File> files = new List<File>();
+            
             int menu;
+            string text;
+            string stmp = "";
+            //bool open = false;
+            string filename = "";
+            File first = null;
+            File second = null;
+            Dictionary<string, int> tenWords = new Dictionary<string, int>(); // словарь 
+            
             do
             {
                 Console.Clear();
@@ -94,35 +105,54 @@ namespace Pr2
                 Console.Clear();
                 switch (menu)
                 {
-                    case 1:
-                        try
-                        {
-                            files.Push(new File(GetFilename()));
-                        }
-                        catch (Exception ex) 
-                        {
-                            Console.WriteLine("Ошибка открытия файлов");
-                            fileList.ForEach(file => file.Dispose());
-                            break;
-                        }
-
+                    case 1:// открываем файл
+                        first = OpenFile(GetFilename(), true);
+                        if(first == null)
+                        Exit();
                         break;
                     case 2:
-                        length = stack.Count;
-                        if (length > 0)
+                        text = "";
+                        if (first != null)
                         {
-                            Stack<Plant> rev = new Stack<Plant>();
-                            while (stack.Count != 0)
-                                rev.Push(stack.Pop());
-                            stack.Clear();
-                            stack = rev;
-                            Console.WriteLine("Записали в обратном порядке");
+                            for (int i = 1; i <= first.Length; i++) // читаем и считаем в словарь 
+                            {
+                                first.Read(i);
+                                if (tenWords.ContainsKey(first.Word))
+                                    tenWords[first.Word]++;
+                                else if (tenWords.Count() < 10)
+                                    tenWords.Add(first.Word, 1);
+                            }
+                            if (tenWords.Count != 0)
+                            {
+                                filename = first.sPath;
+                                first.Dispose();
+                                first = null;
+                                first = OpenFile(filename, false); // откываем для записи
+                                if (first != null)
+                                {
+                                    Dictionary<string, int> sortedDict = tenWords.OrderBy(x => x.Value).ToDictionary(x => x.Key, x => x.Value); // сортируем словарь по значению
+                                    sortedDict.Reverse(); // разворачиваем словарь
+                                    while (first.Length < 10 || sortedDict.Count != 0) // пока в файле меньше 10 слов или список не пуст
+                                    {
+                                        stmp = sortedDict.Keys.ElementAt(1); // получаем элемент
+                                        sortedDict.Remove(stmp); // удаляем запись из словаря
+                                        text += stmp + " "; // добавляем слово в строку, которую потом запишем в файл
+                                    }
+                                    first.Write(text);
+                                }
+                            }
+                            first.Dispose();
+                            first = null;
                         }
-                        else Console.WriteLine("Стек пустой");
+                        Console.WriteLine("Работа выполнена");
                         Exit();
                         break;
                     case 3:
-                        fileList.ForEach(file => Console.WriteLine(file.GetLength()));
+                        first = OpenFile(GetFilename(), true);
+                        if (first != null) 
+                        {
+                            Console.WriteLine("Количество слов в файле: {0}", first.Length);
+                        }
                         Exit();
                         break;
                     case 4: // удалить элемент по индексу
@@ -156,12 +186,6 @@ namespace Pr2
 
         }
 
-        public static int LoadLib()
-        {
-            
-            return 0;
-        }
-
         public static string GetFilename()
         {
             string filename;
@@ -174,40 +198,38 @@ namespace Pr2
             return filename;
         }
 
-        public static int ReadFile(string filename, ref Stack<Plant> stack)
+        public static bool GetOpenType() 
         {
+            bool type;
+            string answ;
+            do
+            {
+                Console.Clear();
+                Console.WriteLine("Выберите тип открытия файла:");
+                answ = Console.ReadLine();
+            } while (answ != "r" && answ != "R" && answ != "W" && answ != "w");
+            if(answ == "r" || answ == "R")
+                type = true;
+            else
+                type = false;
+            return type;
+        }
+
+        public static File OpenFile(string filename, bool type)
+        {
+            File file;
             try
             {
-                using (FileStream fstream = new FileStream(filename, FileMode.Open))
-                {
-                    using (BinaryReader reader = new BinaryReader(fstream))
-                    {
-                        string name;
-                        int month;
-                        int seedsAmount;
-                        double price;
-                        while (reader.BaseStream.Position < reader.BaseStream.Length)
-                        {
-                            name = reader.ReadString();
-                            month = reader.ReadInt32();
-                            seedsAmount = reader.ReadInt32();
-                            price = reader.ReadDouble();
-                            Plant item = new Plant(name, month, seedsAmount, price);
-                            stack.Push(item);
-                        }
-                    }
-                }
+                file = new File(filename, type);
+                //open = true;
+                Console.WriteLine("Файл открыт");
+                return file;
             }
-            catch (FileNotFoundException)
+            catch (Exception ex)
             {
-                Console.WriteLine("Такого файла нет, но мы его создали");
+                Console.WriteLine("Ошибка открытия файлов");
+                return null;
             }
-            catch (System.ArgumentException)
-            {
-                return -1;
-            }
-            Exit();
-            return 0;
         }
 
         public static void WriteFile(string filename, ref Stack<Plant> stack)
@@ -244,111 +266,6 @@ namespace Pr2
             //action = 
 
             while ((Console.ReadKey()).Key != ConsoleKey.Enter) ;
-        }
-        public static Plant CreateNewPlant()
-        {
-            string name;
-            int seedsAmount, month;
-            double price;
-
-            do
-            {
-                Console.Clear();
-                Console.WriteLine("Введите название растения:");
-                name = Console.ReadLine();
-            } while (name == null || name.Length == 0);
-
-            do
-            {
-                Console.Clear();
-                Console.WriteLine("Введите месяц посадки (номер месяца ):");
-            } while (!Int32.TryParse(Console.ReadLine(), out month) || month < 1 || month > 12);
-
-            do
-            {
-                Console.Clear();
-                Console.WriteLine("Введите количество семян в упаковке:");
-            } while (!Int32.TryParse(Console.ReadLine(), out seedsAmount) || seedsAmount < 1);
-
-            do
-            {
-                Console.Clear();
-                Console.WriteLine("Введите цену упаковки:");
-            } while (!Double.TryParse(Console.ReadLine(), out price) || price < EPS);
-
-            return new Plant(name, --month, seedsAmount, price);
-        }
-
-        public static Plant ChangeElement(Plant plant)
-        {
-            int menu;
-            string name;
-            int seedsAmount, month;
-            double price;
-            do
-            {
-                Console.Clear();
-                Console.WriteLine("1.Изменить название");
-                Console.WriteLine("2.Изменить месяц посадки");
-                Console.WriteLine("3.Изменить количество семян в упаковке");
-                Console.WriteLine("4.Изменить цену");
-                Console.WriteLine("5.Сохранить и вернуться в меню");
-                Int32.TryParse(Console.ReadLine(), out menu);
-                Console.Clear();
-                switch (menu)
-                {
-                    case 1:
-                        do
-                        {
-                            Console.Clear();
-                            Console.WriteLine("Введите новое название растения:");
-                            name = Console.ReadLine();
-                        } while (name == null || name.Length == 0);
-                        plant.SetName(name);
-                        Exit();
-                        break;
-                    case 2:
-                        do
-                        {
-                            Console.Clear();
-                            Console.WriteLine("Введите новый месяц посадки (номер месяца):");
-                        } while (!Int32.TryParse(Console.ReadLine(), out month) || month < 1 || month > 12);
-                        plant.SetMonth(--month);
-                        Exit();
-                        break;
-                    case 3:
-                        do
-                        {
-                            Console.Clear();
-                            Console.WriteLine("Введите новое количество семян в упаковке:");
-                        } while (!Int32.TryParse(Console.ReadLine(), out seedsAmount) || seedsAmount < 1);
-                        plant.SetSeedsAmount(seedsAmount);
-                        Exit();
-                        break;
-                    case 4:
-                        do
-                        {
-                            Console.Clear();
-                            Console.WriteLine("Введите новую цену упаковки:");
-                        } while (!Double.TryParse(Console.ReadLine(), out price) || price < EPS);
-                        plant.SetPrice(price);
-                        Exit();
-                        break;
-                }
-            } while (menu != 5);
-            return plant;
-        }
-
-        public static Plant ChangePrice(Plant plant)
-        {
-            double price;
-            do
-            {
-                Console.Clear();
-                Console.WriteLine("Введите новую цену упаковки:");
-            } while (!Double.TryParse(Console.ReadLine(), out price) || price < EPS);
-            plant.SetPrice(price);
-            return plant;
         }
 
         public static int GetIndex(int length)
