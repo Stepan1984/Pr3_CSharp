@@ -1,5 +1,6 @@
 ﻿
 
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -31,8 +32,8 @@ namespace Pr2
             {
                 try 
                 {
-                    sPath = newPath;
-                    path = open(newPath, openType);
+                    sPath = "C:\\Users\\stepa\\Desktop\\CSharp\\Pr3\\text\\" + newPath;
+                    path = open(sPath, openType);
                     word = new StringBuilder(255);
                 }
                 catch (Exception ex) 
@@ -97,7 +98,7 @@ namespace Pr2
             {
                 Console.Clear();
                 Console.WriteLine("1.Открыть файл");//
-                Console.WriteLine("2.Оставить в файле 10 самых частых слов");
+                Console.WriteLine("2.Оставить в файле 10 самых частых слов");//
                 Console.WriteLine("3.Получить количество слов в файле");//
                 Console.WriteLine("4.Заменить каждое четное слово файла на соответствующее из второго файла,\n   заменить каждое нечётное слово из второго файла на соответствующее из первого");
                 Console.WriteLine("5.Выход");
@@ -107,7 +108,6 @@ namespace Pr2
                 {
                     case 1:// открываем файл
                         first = OpenFile(GetFilename(), true);
-                        if(first == null)
                         Exit();
                         break;
                     case 2:
@@ -156,28 +156,7 @@ namespace Pr2
                         Exit();
                         break;
                     case 4: // удалить элемент по индексу
-                        length = stack.Count;
-                        if (length > 0)
-                        {
-                            int index = GetIndex(length);
-                            if (index == 0)
-                                stack.Pop();
-                            else
-                            {
-                                
-                                int j = 0;
-                                while (j++ != index)
-                                    tmpStack.Push(stack.Pop());
-                                Console.WriteLine(stack.Pop());
-                                while (tmpStack.Count > 0)
-                                    stack.Push(tmpStack.Pop());
-                            }
-                            Console.WriteLine("Элемент успешно удалён");
-                        }
-                        else
-                        {
-                            Console.WriteLine("Стек пустой");
-                        }
+                        Console.WriteLine("Затычка");
                         Exit();
                         break;
                 }
@@ -227,46 +206,12 @@ namespace Pr2
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Ошибка открытия файлов");
+                //Console.WriteLine(ex.ToString());
+                Console.WriteLine("Ошибка открытия файла");
                 return null;
             }
         }
 
-        public static void WriteFile(string filename, ref Stack<Plant> stack)
-        {
-            using (FileStream fstream = new FileStream(filename, FileMode.OpenOrCreate))
-            {
-                using (BinaryWriter writer = new BinaryWriter(fstream))
-                {
-                    foreach (Plant plant in stack)
-                    {
-                        writer.Write(plant.GetName());
-                        writer.Write(plant.GetMonth());
-                        writer.Write(plant.GetSeedsAmount());
-                        writer.Write(plant.GetPrice());
-                    }
-                }
-            }
-            Console.WriteLine("Стек успешно сохранён");
-            Exit();
-        }
-
-        public static void Show(ref Stack<Plant> stack)
-        {
-            //ConsoleKeyInfo action;
-            Console.Clear();
-            Console.WriteLine(" № |Название|  месяц  |кол-во семян| цена "); // 3|8|9|12|6
-            int i = 0;
-
-            foreach (var item in stack)
-            {
-                Console.WriteLine("{0,3}|{1}", ++i, item);
-            }
-            Console.WriteLine("Enter - для возврата в меню");
-            //action = 
-
-            while ((Console.ReadKey()).Key != ConsoleKey.Enter) ;
-        }
 
         public static int GetIndex(int length)
         {
