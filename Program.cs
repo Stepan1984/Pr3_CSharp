@@ -18,7 +18,7 @@ namespace Pr2
         [DllImport("file64.dll")]
         public static extern void write(IntPtr file, string text);
         [DllImport("file64.dll")]
-        public static extern int fileLength(IntPtr file);
+        public static extern int length(IntPtr file);
 
         public class File : IDisposable
         {
@@ -26,18 +26,21 @@ namespace Pr2
             public readonly string sPath;
             private StringBuilder word;
             int length;
-            public int Length { get { return length = fileLength(path); } }
+            public int Length { get { return length = length(path); } }
             public string Word{ get { return word.ToString(); } }
             public File(string newPath, bool openType) // конструктор
             {
-                try 
+                try
                 {
-                    sPath = "C:\\Users\\stepa\\Desktop\\CSharp\\Pr3\\text\\" + newPath;
+                    sPath = /*"C:\\Users\\stepa\\Desktop\\CSharp\\Pr3\\text\\" + */  newPath;
                     path = open(sPath, openType);
                     word = new StringBuilder(255);
                 }
-                catch (Exception ex) 
+                catch (SEHException ex) 
                 {
+                    //
+                    //
+                    //Console.WriteLine(ex.ToString());
                     throw new Exception("Всё плохо, вырубай");
                     //видимо удалить объект
                 }
@@ -87,9 +90,14 @@ namespace Pr2
             
             int menu;
             string text;
+            string text2;
             string stmp = "";
             //bool open = false;
             string filename = "";
+            string filename2 = "";
+            int prevLength;
+            int prevLength2;
+            int minLength;
             File first = null;
             File second = null;
             Dictionary<string, int> tenWords = new Dictionary<string, int>(); // словарь 
@@ -107,6 +115,8 @@ namespace Pr2
                 switch (menu)
                 {
                     case 1:// открываем файл
+                        if (first != null)
+                            first.Dispose();
                         first = OpenFile(GetFilename(), true);
                         Exit();
                         break;
@@ -130,38 +140,129 @@ namespace Pr2
                                 first = OpenFile(filename, false); // откываем для записи
                                 if (first != null)
                                 {
-                                    Dictionary<string, int> sortedDict = tenWords.OrderBy(x => x.Value).ToDictionary(x => x.Key, x => x.Value); // сортируем словарь по значению
-                                    sortedDict.Reverse(); // разворачиваем словарь
-                                    while (first.Length < 10 || sortedDict.Count != 0) // пока в файле меньше 10 слов или список не пуст
+                                        
+                                    tenWords = tenWords.OrderBy(x => x.Value).ToDictionary(x => x.Key, x => x.Value); // сортируем словарь по значению
+                                    tenWords.Reverse(); // разворачиваем словарь
+                                    prevLength = tenWords.Count - 10;
+                                    while (tenWords.Count != 0 && tenWords.Count != prevLength) // пока в файле меньше 10 слов или список не пуст
                                     {
-                                        stmp = sortedDict.Keys.ElementAt(1); // получаем элемент
-                                        sortedDict.Remove(stmp); // удаляем запись из словаря
+                                        stmp = tenWords.Keys.ElementAt(0); // получаем элемент
+                                        tenWords.Remove(stmp); // удаляем запись из словаря
                                         text += stmp + " "; // добавляем слово в строку, которую потом запишем в файл
                                     }
+                                    text = text.Trim();
                                     first.Write(text);
+                                    filename = first.sPath;
+                                    first.Dispose();
+                                    first = OpenFile(filename, true);
                                 }
                             }
-                            first.Dispose();
-                            first = null;
+                            Console.WriteLine("Работа выполнена");
                         }
-                        Console.WriteLine("Работа выполнена");
+                        else
+                            Console.WriteLine("Откройте файл");
+                        
                         Exit();
                         break;
                     case 3:
-                        first = OpenFile(GetFilename(), true);
-                        if (first != null) 
+                        if (first != null)
                         {
                             Console.WriteLine("Количество слов в файле: {0}", first.Length);
                         }
+                        else
+                            Console.WriteLine("Откройте файл");
                         Exit();
                         break;
                     case 4: // удалить элемент по индексу
-                        Console.WriteLine("Затычка");
+                        if (first != null) 
+                        {
+                            if (second == null) 
+                            {
+                                Console.WriteLine("Второй файл");
+                                second = OpenFile(GetFilename(), true);
+                            }
+                            if(second!= null) 
+                            {
+                                text = text2 = "";
+                                filename = first.sPath;
+                                prevLength = first.Length;
+                                filename2 = second.sPath;
+                                prevLength2 = second.Length;
+                                minLength = prevLength > prevLength2? prevLength2 : prevLength;
+                                for(int i = 1; i <= prevLength;i++)
+                                {
+                                    if (i%2==0) // если чётное слово , то надо его заменить на соответствующее чётное из второго файла
+                                    {
+                                        if (i > prevLength2) // если индекс слова больше чем длина второго файла
+                                        {
+                                            second.Read(i - prevLength2 * (i / prevLength2));// 290 - 30* 290/30
+                                            text += second.Word  + " ";
+                                        }
+                                        else 
+                                        {
+                                            second.Read(i);
+                                            text += second.Word + " ";
+                                        }
+                                            
+                                    }
+                                    else 
+                                    {
+                                        first.Read(i);
+                                        text += first.Word + " ";
+                                    }
+                                }
+
+                                for (int i = 1; i <= prevLength2; i++)
+                                {
+                                    if (i % 2 == 0) // если чётное 
+                                    {
+                                        second.Read(i);
+                                        text2 += second.Word + " ";
+                                    }
+                                    else // если нечётное
+                                    {
+                                        
+                                        if (i > prevLength)
+                                        {
+                                            first.Read(i - prevLength * (i / prevLength));
+                                            text2 += first.Word + " ";
+                                        }
+                                        else
+                                        {
+                                            first.Read(i);
+                                            text2 += first.Word + " ";
+                                        }
+                                    }
+                                }
+
+                                first.Dispose();
+                                second.Dispose();
+                                first = OpenFile(filename, false);
+                                second = OpenFile(filename2, false);
+                                text = text.Trim();
+                                text2 = text2.Trim();
+                                first.Write(text);
+                                second.Write(text2);
+                                first.Dispose();
+                                second.Dispose();
+                                second = null;
+                                first = OpenFile(filename, true);
+                            }
+                        }
+                        else 
+                        {
+                            Console.Write("Откройте файл\n");
+                        }
                         Exit();
                         break;
                 }
             }
             while (menu != 5);
+
+            if(first != null)
+            first.Dispose();
+            if (second != null)
+                second.Dispose();
 
         }
 
